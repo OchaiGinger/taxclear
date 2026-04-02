@@ -15,11 +15,11 @@ import { Switch } from "@/components/ui/switch";
 import {
   taxBracketComputation,
   TaxBracketComputationOutput,
-} from "@/ai/flows/tax-bracket-computation";
+} from "@/app/ai/flow/tax-bracket-computation";
 import {
   taxReliefGuidance,
   TaxReliefGuidanceOutput,
-} from "@/ai/flows/tax-relief-guidance";
+} from "@/app/ai/flow/tax-relief-guidance";
 import {
   Loader2,
   ArrowRight,
