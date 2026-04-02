@@ -17,16 +17,16 @@ export const Navbar = () => {
     <nav className="fixed top-0 left-0 w-full z-50 h-20 flex items-center justify-between px-[6%] backdrop-blur-md border-b border-white/5 bg-brand-black/40">
       {/* Logo */}
       <div className="flex items-center gap-2">
-        <div className="w-8 h-8 relative">
+        <div className="w-12 h-12 relative">
           <Image
             src="/logo.png"
-            alt="TaxClear Logo"
+            alt="Fiscora Logo"
             fill
             className="object-contain"
           />
         </div>
         <span className="text-xl font-headline font-bold tracking-tighter uppercase italic text-white">
-          TaxClear
+          Fiscora
         </span>
       </div>
 
