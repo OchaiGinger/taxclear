@@ -1,0 +1,22 @@
+{
+  "placeholderImages": [
+    {
+      "id": "hero-1",
+      "description": "Lagos Marina business district aerial view",
+      "imageUrl": "https://picsum.photos/seed/taxclear-lagos/1200/600",
+      "imageHint": "Lagos business"
+    },
+    {
+      "id": "hero-2",
+      "description": "Professional accountant working on tax documents",
+      "imageUrl": "https://picsum.photos/seed/taxclear-audit/1200/600",
+      "imageHint": "accounting finance"
+    },
+    {
+      "id": "hero-3",
+      "description": "Modern digital workspace with financial charts",
+      "imageUrl": "https://picsum.photos/seed/taxclear-charts/1200/600",
+      "imageHint": "digital analytics"
+    }
+  ]
+}
