@@ -1,283 +1,416 @@
 "use client";
 
 import React, { useState } from "react";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Loader2, ShieldCheck } from "lucide-react";
+import {
+  taxBracketComputation,
+  TaxBracketComputationOutput,
+} from "@/ai/flows/tax-bracket-computation";
+import {
+  taxReliefGuidance,
+  TaxReliefGuidanceOutput,
+} from "@/ai/flows/tax-relief-guidance";
+import { verifyBvnWithMono } from "@/app/actions/mono-actions";
+import {
+  Loader2,
+  ShieldCheck,
+  Fingerprint,
+  CheckCircle2,
+  AlertCircle,
+  Building2,
+} from "lucide-react";
+import { toast } from "sonner";
 
-// ── Types ────────────────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------------
+// Zod schema
+// ---------------------------------------------------------------------------
+const bvnFormSchema = z.object({
+  bvn: z
+    .string()
+    .length(11, { message: "BVN must be exactly 11 digits." })
+    .regex(/^\d+$/, { message: "BVN must contain only numbers." }),
+});
 
-interface TaxResults {
-  annualIncome: number;
-  taxableIncome: number;
-  personalReliefAllowance: number;
-  pensionRelief: number;
-  annualPAYE: number;
-  monthlyPAYE: number;
-  effectiveTaxRate: number;
-  bracket: string;
-  explanation: string;
-}
+type BvnFormValues = z.infer<typeof bvnFormSchema>;
 
-// ── Tax Computation (2024 Finance Act) ───────────────────────────────────────
-
-const BRACKETS = [
-  { limit: 300_000, rate: 0.07 },
-  { limit: 300_000, rate: 0.11 },
-  { limit: 500_000, rate: 0.15 },
-  { limit: 500_000, rate: 0.19 },
-  { limit: 1_600_000, rate: 0.21 },
-  { limit: Infinity, rate: 0.24 },
-];
-
-function computeTax(
-  annualIncome: number,
-  hasPension: boolean,
-  hasNHF: boolean,
-): TaxResults {
-  const pensionRelief = hasPension ? annualIncome * 0.08 : 0;
-  const nhfRelief = hasNHF ? annualIncome * 0.025 : 0;
-  const consolidatedRelief = Math.max(200_000, annualIncome * 0.2);
-  const personalReliefAllowance = consolidatedRelief;
-
-  const taxableIncome = Math.max(
-    0,
-    annualIncome - consolidatedRelief - pensionRelief - nhfRelief,
-  );
-
-  let tax = 0;
-  let remaining = taxableIncome;
-
-  for (const { limit, rate } of BRACKETS) {
-    if (remaining <= 0) break;
-    const slice = Math.min(remaining, limit);
-    tax += slice * rate;
-    remaining -= slice;
-  }
-
-  const effectiveTaxRate = annualIncome > 0 ? tax / annualIncome : 0;
-  const bracket =
-    taxableIncome <= 300_000
-      ? "7%"
-      : taxableIncome <= 600_000
-        ? "11%"
-        : taxableIncome <= 1_100_000
-          ? "15%"
-          : taxableIncome <= 1_600_000
-            ? "19%"
-            : taxableIncome <= 3_200_000
-              ? "21%"
-              : "24%";
-
-  const explanation =
-    `Your gross annual income of ${fmt(annualIncome)} qualifies for a ` +
-    `consolidated relief of ${fmt(consolidatedRelief)}` +
-    (hasPension ? `, pension deduction of ${fmt(pensionRelief)}` : "") +
-    (hasNHF ? `, NHF deduction of ${fmt(nhfRelief)}` : "") +
-    `. This brings your taxable income to ${fmt(taxableIncome)}, ` +
-    `attracting an annual PAYE of ${fmt(tax)} at an effective rate of ` +
-    `${(effectiveTaxRate * 100).toFixed(2)}% under the 2024 Finance Act.`;
-
-  return {
-    annualIncome,
-    taxableIncome,
-    personalReliefAllowance,
-    pensionRelief,
-    annualPAYE: tax,
-    monthlyPAYE: tax / 12,
-    effectiveTaxRate,
-    bracket,
-    explanation,
-  };
-}
-
-// ── Helpers ──────────────────────────────────────────────────────────────────
-
-const fmt = (val: number) =>
-  new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN" }).format(
-    val,
-  );
-
-const cn = (...cls: (string | false | undefined)[]) =>
-  cls.filter(Boolean).join(" ");
-
-// ── Component ────────────────────────────────────────────────────────────────
-
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
 export const CalculatorDialog = ({
   children,
 }: {
   children: React.ReactNode;
 }) => {
-  const [open, setOpen] = useState(false);
-  const [step, setStep] = useState<1 | 2>(1);
   const [loading, setLoading] = useState(false);
+  const [fetching, setFetching] = useState(false);
+  const [step, setStep] = useState(1);
   const [income, setIncome] = useState("");
-  const [hasPension, setHasPension] = useState(false);
+  const [userName, setUserName] = useState("");
+  const [isVerified, setIsVerified] = useState(false);
   const [hasNHF, setHasNHF] = useState(false);
-  const [results, setResults] = useState<TaxResults | null>(null);
+  const [hasPension, setHasPension] = useState(false);
+  const [results, setResults] = useState<TaxBracketComputationOutput | null>(
+    null,
+  );
+  const [guidance, setGuidance] = useState<TaxReliefGuidanceOutput | null>(
+    null,
+  );
 
-  const handleCompute = async () => {
-    const annualIncome = parseFloat(income.replace(/,/g, ""));
-    if (isNaN(annualIncome)) return;
+  const form = useForm<BvnFormValues>({
+    resolver: zodResolver(bvnFormSchema),
+    defaultValues: { bvn: "" },
+  });
 
-    setLoading(true);
-    // Small async tick so the spinner renders before heavy compute
-    await new Promise((r) => setTimeout(r, 0));
-    setResults(computeTax(annualIncome, hasPension, hasNHF));
-    setLoading(false);
-    setStep(2);
+  // -------------------------------------------------------------------------
+  // BVN verification
+  // -------------------------------------------------------------------------
+  const handleBvnVerify = async () => {
+    const isValid = await form.trigger("bvn");
+    if (!isValid) return;
+
+    const bvn = form.getValues("bvn");
+    setFetching(true);
+
+    try {
+      const response = await verifyBvnWithMono(bvn);
+
+      if (response.status === "success" || response.data) {
+        const profile = response.data;
+        const formattedIncome = new Intl.NumberFormat("en-NG").format(
+          profile.estimated_annual_income,
+        );
+
+        setIncome(formattedIncome);
+        setUserName(`${profile.first_name} ${profile.last_name}`);
+        setHasPension(true);
+        setHasNHF(true);
+        setIsVerified(true);
+
+        toast.success("Mono Identity Sync Successful", {
+          description: `Verified account for ${profile.first_name}. Annual income data retrieved.`,
+        });
+      }
+    } catch (error: any) {
+      toast.error("Mono Connection Error", {
+        description:
+          error.message || "Failed to establish secure handshake via Mono.",
+      });
+    } finally {
+      setFetching(false);
+    }
   };
 
-  const reset = () => {
-    setOpen(false);
+  // -------------------------------------------------------------------------
+  // Tax computation
+  // -------------------------------------------------------------------------
+  const handleCompute = async () => {
+    setLoading(true);
+    try {
+      const annualIncome = parseFloat(income.replace(/,/g, ""));
+      if (isNaN(annualIncome)) throw new Error("Invalid income");
+
+      const compResults = await taxBracketComputation({
+        annualIncome,
+        hasNHF,
+        hasPension,
+      });
+      setResults(compResults);
+
+      const reliefResults = await taxReliefGuidance({
+        annualIncome: compResults.annualIncome,
+        monthlyPAYE: compResults.monthlyPAYEBreakdown,
+        effectiveTaxRate: compResults.effectiveTaxRate * 100,
+        taxBracket: compResults.estimatedTaxBracket,
+        financeActDetails:
+          "2024 Finance Act: Top rate 24% for >3.2M. Personal relief 200k + 20%.",
+      });
+      setGuidance(reliefResults);
+
+      setStep(2);
+    } catch (error) {
+      console.error(error);
+      toast.error("Computation Error", {
+        description: "An error occurred while processing your tax analysis.",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // -------------------------------------------------------------------------
+  // Helpers
+  // -------------------------------------------------------------------------
+  const formatNaira = (val: number) =>
+    new Intl.NumberFormat("en-NG", {
+      style: "currency",
+      currency: "NGN",
+    }).format(val);
+
+  const cn = (...inputs: any[]) => inputs.filter(Boolean).join(" ");
+
+  const resetModal = () => {
     setStep(1);
     setIncome("");
-    setHasPension(false);
-    setHasNHF(false);
+    setUserName("");
+    setIsVerified(false);
     setResults(null);
+    setGuidance(null);
+    form.reset();
   };
 
+  // -------------------------------------------------------------------------
+  // Render
+  // -------------------------------------------------------------------------
   return (
     <Dialog
-      open={open}
-      onOpenChange={(o) => {
-        if (!o) reset();
-        setOpen(o);
+      onOpenChange={(open) => {
+        if (!open) resetModal();
       }}
     >
-      {/* Wrap in div to avoid nested <button> hydration error */}
-      <div onClick={() => setOpen(true)} className="contents">
-        {children}
-      </div>
+      {/* asChild removed — not supported by this DialogTrigger */}
+      <DialogTrigger>{children}</DialogTrigger>
 
-      <DialogContent className="max-w-4xl bg-brand-black border-white/10 text-white p-0 overflow-hidden">
-        <div className="grid md:grid-cols-[300px_1fr] min-h-150">
-          {/* ── Sidebar ── */}
-          <aside className="bg-brand-dark p-8 border-r border-white/5 flex flex-col gap-6">
-            <div className="space-y-2">
-              <span className="text-[0.65rem] font-bold text-brand-green tracking-[0.2em] uppercase">
-                Security Standard
-              </span>
-              <div className="flex items-center gap-2 text-white/40 text-xs">
-                <ShieldCheck className="w-4 h-4" />
-                <span>NIBSS Read-Only Encryption</span>
+      <DialogContent className="max-w-4xl bg-brand-black border-white/10 text-white p-0 overflow-hidden outline-none">
+        <DialogHeader className="sr-only">
+          <DialogTitle>Mono Secured Tax Liability Calculator</DialogTitle>
+        </DialogHeader>
+
+        <div className="grid md:grid-cols-[300px_1fr] min-h-[600px]">
+          {/* Sidebar */}
+          <div className="bg-brand-dark p-8 border-r border-white/5 flex flex-col gap-6">
+            <div className="space-y-4">
+              <div className="w-10 h-10 bg-brand-green/10 border border-brand-green/20 flex items-center justify-center rounded-sm">
+                <Building2 className="w-5 h-5 text-brand-green" />
+              </div>
+              <div className="space-y-1">
+                <span className="text-[0.65rem] font-bold text-brand-green tracking-[0.2em] uppercase">
+                  Mono Partner
+                </span>
+                <p className="text-[0.6rem] text-white/40 leading-relaxed uppercase tracking-wider">
+                  Secured Financial Access
+                </p>
               </div>
             </div>
 
             <div className="mt-auto space-y-4">
-              {(
-                [
-                  [1, "Input Income Details"],
-                  [2, "Review Analysis"],
-                ] as const
-              ).map(([s, label]) => (
-                <div
-                  key={s}
-                  className={cn(
-                    "p-4 border border-white/5 transition-all",
-                    step === s ? "bg-white/5" : "opacity-30",
-                  )}
-                >
-                  <p className="text-[0.7rem] font-bold uppercase tracking-wider mb-1">
-                    Step 0{s}
-                  </p>
-                  <p className="text-xs text-white/60">{label}</p>
-                </div>
-              ))}
+              <div
+                className={cn(
+                  "p-4 border border-white/5 transition-all",
+                  step === 1
+                    ? "bg-white/5 border-brand-green/30"
+                    : "opacity-30",
+                )}
+              >
+                <p className="text-[0.7rem] font-bold uppercase tracking-wider mb-1">
+                  Step 01
+                </p>
+                <p className="text-xs text-white/60">Mono Identity Sync</p>
+              </div>
+              <div
+                className={cn(
+                  "p-4 border border-white/5 transition-all",
+                  step === 2
+                    ? "bg-white/5 border-brand-green/30"
+                    : "opacity-30",
+                )}
+              >
+                <p className="text-[0.7rem] font-bold uppercase tracking-wider mb-1">
+                  Step 02
+                </p>
+                <p className="text-xs text-white/60">Tax Optimization</p>
+              </div>
             </div>
-          </aside>
+          </div>
 
-          {/* ── Main ── */}
-          <main className="p-10 bg-[#070707] overflow-y-auto max-h-[85vh]">
-            {/* Step 1 – Input */}
-            {step === 1 && (
+          {/* Main Content */}
+          <div className="p-10 bg-[#070707] overflow-y-auto max-h-[85vh]">
+            {/* ----------------------------------------------------------------
+                Step 1 — Identity Sync
+            ---------------------------------------------------------------- */}
+            {step === 1 ? (
               <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <div className="space-y-2">
                   <h2 className="text-3xl font-headline font-bold uppercase tracking-tight">
-                    Tax{" "}
+                    Identity{" "}
                     <span className="font-serif italic text-brand-green">
-                      Calculator
+                      Sync
                     </span>
                   </h2>
                   <p className="text-white/40 text-sm max-w-md">
-                    Enter your gross annual income to see your FIRS tax
-                    breakdown under the 2024 Finance Act.
+                    Connect your financial data via Mono&apos;s read-only
+                    lookup. Your security is maintained through zero-retention
+                    processing.
                   </p>
                 </div>
 
-                <div className="space-y-6">
-                  <div className="space-y-3">
-                    <Label
-                      htmlFor="income"
-                      className="uppercase text-[0.7rem] font-bold tracking-widest text-white/50"
-                    >
-                      Total Annual Income (NGN)
-                    </Label>
-                    <Input
-                      id="income"
-                      placeholder="e.g. 12,000,000"
-                      className="h-16 bg-white/5 border-white/10 rounded-none text-2xl font-headline focus:ring-brand-green"
-                      value={income}
-                      onChange={(e) => setIncome(e.target.value)}
+                <Form {...form}>
+                  <div className="space-y-6">
+                    {/* BVN Field */}
+                    <FormField
+                      control={form.control}
+                      name="bvn"
+                      render={({ field }) => (
+                        <FormItem className="space-y-3">
+                          <div className="flex justify-between items-center">
+                            <FormLabel className="uppercase text-[0.7rem] font-bold tracking-widest text-white/50 flex items-center gap-2">
+                              <Fingerprint className="w-3 h-3 text-brand-green" />
+                              Bank Verification Number
+                            </FormLabel>
+                            <span className="text-[0.6rem] text-white/20 uppercase font-medium">
+                              11 Digits Required
+                            </span>
+                          </div>
+                          <FormControl>
+                            <div className="relative">
+                              <Input
+                                {...field}
+                                maxLength={11}
+                                placeholder="e.g. 22233344455"
+                                disabled={isVerified}
+                                className="h-16 bg-white/5 border-white/10 rounded-none text-2xl font-headline focus:ring-brand-green pr-36"
+                                onChange={(e) =>
+                                  field.onChange(
+                                    e.target.value.replace(/\D/g, ""),
+                                  )
+                                }
+                              />
+                              <Button
+                                type="button"
+                                onClick={handleBvnVerify}
+                                disabled={fetching || isVerified}
+                                className="absolute right-2 top-2 bottom-2 h-auto rounded-none bg-white/10 text-white hover:bg-brand-green hover:text-white transition-all text-[0.65rem] font-bold uppercase px-4 border border-white/10"
+                              >
+                                {fetching ? (
+                                  <Loader2 className="w-3 h-3 animate-spin" />
+                                ) : isVerified ? (
+                                  <CheckCircle2 className="w-4 h-4 text-brand-green" />
+                                ) : (
+                                  "Verify Identity"
+                                )}
+                              </Button>
+                            </div>
+                          </FormControl>
+                          <FormMessage className="text-red-400 text-[0.7rem]" />
+                        </FormItem>
+                      )}
                     />
-                  </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    {(
-                      [
-                        [
-                          "Pension (8%)",
-                          "Statutory Relief",
-                          hasPension,
-                          setHasPension,
-                        ],
-                        ["NHF (2.5%)", "Housing Fund", hasNHF, setHasNHF],
-                      ] as const
-                    ).map(([title, sub, checked, onChange]) => (
-                      <div
-                        key={title}
-                        className="p-4 border border-white/5 flex items-center justify-between"
-                      >
+                    {/* Verified profile card */}
+                    {isVerified && (
+                      <div className="animate-in fade-in slide-in-from-top-2 duration-300">
+                        <div className="p-6 border border-brand-green/20 bg-brand-green/5 space-y-4">
+                          <div className="flex justify-between items-end">
+                            <div className="space-y-1">
+                              <Label className="uppercase text-[0.65rem] font-bold tracking-widest text-white/50">
+                                Verified Profile: {userName}
+                              </Label>
+                              <p className="text-3xl font-headline font-bold text-white">
+                                {formatNaira(
+                                  parseFloat(income.replace(/,/g, "")),
+                                )}
+                              </p>
+                            </div>
+                            <div className="flex flex-col items-end gap-1">
+                              <span className="text-[0.6rem] bg-brand-green text-white px-2 py-1 uppercase font-bold tracking-tighter">
+                                Mono Verified
+                              </span>
+                              <p className="text-[0.5rem] text-white/40 uppercase">
+                                Sync Ref:{" "}
+                                {Math.random()
+                                  .toString(36)
+                                  .substring(7)
+                                  .toUpperCase()}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Deduction toggles */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="p-4 border border-white/5 flex items-center justify-between group hover:border-brand-green/30 transition-colors">
                         <div className="space-y-1">
                           <Label className="uppercase text-[0.65rem] font-bold tracking-widest">
-                            {title}
+                            Pension (8%)
                           </Label>
-                          <p className="text-[0.6rem] text-white/40">{sub}</p>
+                          <p className="text-[0.6rem] text-white/40">
+                            Statutory Deduction
+                          </p>
                         </div>
-                        <Switch checked={checked} onCheckedChange={onChange} />
+                        <Switch
+                          checked={hasPension}
+                          onCheckedChange={setHasPension}
+                        />
                       </div>
-                    ))}
+                      <div className="p-4 border border-white/5 flex items-center justify-between group hover:border-brand-green/30 transition-colors">
+                        <div className="space-y-1">
+                          <Label className="uppercase text-[0.65rem] font-bold tracking-widest">
+                            NHF (2.5%)
+                          </Label>
+                          <p className="text-[0.6rem] text-white/40">
+                            Housing Fund
+                          </p>
+                        </div>
+                        <Switch checked={hasNHF} onCheckedChange={setHasNHF} />
+                      </div>
+                    </div>
+
+                    {/* Submit */}
+                    <div className="space-y-4">
+                      <Button
+                        type="button"
+                        onClick={handleCompute}
+                        disabled={!income || loading}
+                        className="w-full h-16 rounded-none bg-brand-green text-white hover:bg-white hover:text-black font-bold uppercase tracking-widest text-[0.8rem] transition-all"
+                      >
+                        {loading ? (
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                        ) : (
+                          "Run AI Tax Analysis →"
+                        )}
+                      </Button>
+                      <div className="flex items-center gap-2 justify-center text-[0.6rem] text-white/30 uppercase font-medium">
+                        <ShieldCheck className="w-3 h-3 text-brand-green" />{" "}
+                        End-to-End Encrypted Session
+                      </div>
+                    </div>
                   </div>
-
-                  <Button
-                    onClick={handleCompute}
-                    disabled={!income || loading}
-                    className="w-full h-16 rounded-none bg-brand-green text-white hover:bg-white hover:text-black font-bold uppercase tracking-widest text-[0.8rem]"
-                  >
-                    {loading ? (
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                    ) : (
-                      "Compute Tax Breakdown →"
-                    )}
-                  </Button>
-                </div>
+                </Form>
               </div>
-            )}
-
-            {/* Step 2 – Results */}
-            {step === 2 && results && (
+            ) : (
+              /* ----------------------------------------------------------------
+               Step 2 — Results
+            ---------------------------------------------------------------- */
               <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                {/* Header */}
                 <div className="flex items-center justify-between border-b border-white/10 pb-6">
                   <div>
                     <span className="text-[0.65rem] font-bold text-brand-green tracking-[0.2em] uppercase">
-                      Your Estimated Monthly PAYE
+                      Est. Monthly PAYE for {userName}
                     </span>
                     <h3 className="text-4xl font-headline font-bold mt-1">
-                      {fmt(results.monthlyPAYE)}
+                      {formatNaira(results?.monthlyPAYEBreakdown || 0)}
                     </h3>
                   </div>
                   <div className="text-right">
@@ -285,53 +418,53 @@ export const CalculatorDialog = ({
                       Effective Rate
                     </span>
                     <p className="text-2xl font-headline font-bold text-brand-green">
-                      {(results.effectiveTaxRate * 100).toFixed(1)}%
+                      {((results?.effectiveTaxRate || 0) * 100).toFixed(1)}%
                     </p>
                   </div>
                 </div>
 
-                {/* Summary + Bracket */}
                 <div className="grid md:grid-cols-2 gap-6">
                   <div className="space-y-4">
                     <h4 className="text-[0.7rem] font-bold uppercase tracking-widest text-white/40">
-                      Calculation Summary
+                      Computation Details
                     </h4>
                     <div className="space-y-3">
-                      {[
-                        [
-                          "Annual Taxable Income",
-                          fmt(results.taxableIncome),
-                          "",
-                        ],
-                        [
-                          "Personal Relief (PRA)",
-                          `-${fmt(results.personalReliefAllowance)}`,
-                          "text-green-500",
-                        ],
-                        ...(hasPension
-                          ? [
-                              [
-                                "Pension Relief",
-                                `-${fmt(results.pensionRelief)}`,
-                                "text-green-500",
-                              ],
-                            ]
-                          : []),
-                      ].map(([label, value, cls]) => (
-                        <div
-                          key={label}
-                          className="flex justify-between text-sm"
-                        >
-                          <span className="text-white/60">{label}</span>
-                          <span className={cls}>{value}</span>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-white/60">
+                          Annual Taxable Income
+                        </span>
+                        <span>{formatNaira(results?.taxableIncome || 0)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-white/60">
+                          Personal Relief (PRA)
+                        </span>
+                        <span className="text-brand-green">
+                          -{formatNaira(results?.personalReliefAllowance || 0)}
+                        </span>
+                      </div>
+                      {hasPension && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-white/60">Pension Relief</span>
+                          <span className="text-brand-green">
+                            -{formatNaira(results?.pensionRelief || 0)}
+                          </span>
                         </div>
-                      ))}
+                      )}
+                      {hasNHF && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-white/60">NHF Deduction</span>
+                          <span className="text-brand-green">
+                            -{formatNaira(results?.nhfDeduction || 0)}
+                          </span>
+                        </div>
+                      )}
                       <div className="pt-3 border-t border-white/5 flex justify-between font-bold">
                         <span className="uppercase text-[0.65rem] tracking-widest">
                           Annual Total Tax
                         </span>
                         <span className="text-brand-green">
-                          {fmt(results.annualPAYE)}
+                          {formatNaira(results?.annualPAYE || 0)}
                         </span>
                       </div>
                     </div>
@@ -339,44 +472,53 @@ export const CalculatorDialog = ({
 
                   <div className="p-6 bg-white/5 border border-white/10">
                     <h4 className="text-[0.7rem] font-bold uppercase tracking-widest text-brand-green mb-4">
-                      Tax Bracket
+                      Relief Opportunities
                     </h4>
-                    <p className="text-4xl font-headline font-bold">
-                      {results.bracket}
-                    </p>
-                    <p className="text-[0.65rem] text-white/50 mt-2 leading-relaxed">
-                      Marginal rate applied to the top portion of your taxable
-                      income under the 2024 Finance Act.
-                    </p>
+                    <div className="space-y-4">
+                      {guidance?.recommendations.slice(0, 2).map((rec, i) => (
+                        <div key={i} className="space-y-1">
+                          <p className="text-xs font-bold uppercase">
+                            {rec.allowanceType}
+                          </p>
+                          <p className="text-[0.65rem] text-white/60 leading-relaxed">
+                            {rec.potentialSavings}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
 
-                {/* Explanation */}
                 <div className="space-y-4">
-                  <h4 className="text-[0.7rem] font-bold uppercase tracking-widest text-white/40">
-                    Breakdown Explanation
-                  </h4>
-                  <div className="p-6 border border-white/5 text-[0.75rem] leading-relaxed text-white/70 bg-brand-dark/50">
-                    {results.explanation}
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="w-3 h-3 text-brand-green" />
+                    <h4 className="text-[0.7rem] font-bold uppercase tracking-widest text-white/40">
+                      Regulatory Breakdown
+                    </h4>
+                  </div>
+                  <div className="p-6 border border-white/5 text-[0.75rem] leading-relaxed text-white/70 bg-brand-dark/50 font-medium whitespace-pre-line">
+                    {results?.explanation}
                   </div>
                 </div>
 
-                <Button
-                  onClick={reset}
-                  variant="outline"
-                  className="w-full h-12 rounded-none border-white/20 hover:bg-white hover:text-black uppercase text-[0.7rem] font-bold tracking-widest"
-                >
-                  New Calculation
-                </Button>
+                <div className="flex gap-4">
+                  <button
+                    onClick={resetModal}
+                    className="flex-1 h-12 border border-white/20 hover:bg-white hover:text-black uppercase text-[0.7rem] font-bold tracking-widest transition-all"
+                  >
+                    New Calculation
+                  </button>
+                  <button className="flex-1 h-12 bg-brand-green text-white hover:bg-white hover:text-black uppercase text-[0.7rem] font-bold tracking-widest transition-all">
+                    Export FIRS Sheet
+                  </button>
+                </div>
 
-                <p className="text-[0.6rem] text-white/30 italic text-center">
-                  This is an estimate only. Consult a certified tax professional
-                  for personalised advice. Figures based on the 2024 Finance Act
-                  (FIRS).
+                <p className="text-[0.6rem] text-white/30 italic text-center leading-relaxed">
+                  {guidance?.disclaimer}
                 </p>
               </div>
             )}
-          </main>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
