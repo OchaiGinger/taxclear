@@ -181,7 +181,7 @@ export const CalculatorDialog = ({
     >
       <DialogTrigger asChild>{children}</DialogTrigger>
 
-      <DialogContent className="w-screen h-screen max-w-none p-0 bg-brand-black text-white overflow-hidden border-none">
+      <DialogContent className="w-screen h-screen  max-w-none! p-0 bg-brand-black text-white overflow-hidden border-none rounded-none translate-x-0! translate-y-0! top-0! left-0! right-0! bottom-0! fixed!">
         <DialogHeader className="sr-only">
           <DialogTitle>Tax Calculator</DialogTitle>
         </DialogHeader>
