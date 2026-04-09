@@ -13,7 +13,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 
-import { verifyBvnWithMono } from "@/app/actions/mono-actions";
 import {
   Loader2,
   ShieldCheck,
@@ -106,36 +105,57 @@ export const CalculatorDialog = ({
 
   // ── BVN VERIFY ─────────────────────────────────
 
-  const handleBvnVerify = async () => {
-    if (bvn.length < 11) return;
+  const handleConnectBank = async () => {
     setFetching(true);
 
     try {
-      const response = await verifyBvnWithMono(bvn);
+      const tokenRes = await fetch("/api/okra-token", {
+        method: "POST",
+      });
 
-      if (response.status === "success" || response.data) {
-        const profile = response.data;
+      const { data } = await tokenRes.json();
 
-        setIncome(
-          new Intl.NumberFormat("en-NG").format(
-            profile.estimated_annual_income,
-          ),
-        );
+      const widget = new (window as any).Okra({
+        name: "Your Tax App",
+        env: "sandbox",
+        key: process.env.NEXT_PUBLIC_OKRA_PUBLIC_KEY,
+        token: data.token,
 
-        setUserName(`${profile.first_name} ${profile.last_name}`);
-        setHasPension(true);
-        setHasNHF(true);
-        setIsVerified(true);
+        onSuccess: async function (res: any) {
+          const accountId = res.accounts[0].id;
 
-        toast.success("Mono Identity Sync Successful", {
-          description: `Verified account for ${profile.first_name}`,
-        });
-      }
+          const txRes = await fetch("/api/okra-transactions", {
+            method: "POST",
+            body: JSON.stringify({ account_id: accountId }),
+          });
+
+          const txData = await txRes.json();
+
+          const transactions = txData.data;
+
+          // 🔥 Estimate income from credits
+          const incomeEstimate = transactions
+            .filter((tx: any) => tx.type === "credit")
+            .reduce((sum: number, tx: any) => sum + tx.amount, 0);
+
+          setIncome(new Intl.NumberFormat("en-NG").format(incomeEstimate));
+
+          setUserName("Connected Bank User");
+          setIsVerified(true);
+
+          toast.success("Bank Connected Successfully");
+        },
+
+        onClose: function () {
+          setFetching(false);
+        },
+      });
+
+      widget.open();
     } catch (error: any) {
-      toast.error("Mono Connection Error", {
+      toast.error("Okra Connection Failed", {
         description: error.message,
       });
-    } finally {
       setFetching(false);
     }
   };
@@ -217,7 +237,10 @@ export const CalculatorDialog = ({
                   onChange={(e) => setBvn(e.target.value.replace(/\D/g, ""))}
                 />
 
-                <Button onClick={handleBvnVerify}>
+                <Button
+                  onClick={handleConnectBank}
+                  disabled={fetching || isVerified}
+                >
                   {fetching ? <Loader2 className="animate-spin" /> : "Verify"}
                 </Button>
 
