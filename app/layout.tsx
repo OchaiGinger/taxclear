@@ -44,7 +44,7 @@ export const metadata: Metadata = {
     title: "Fiscora — Master Your Tax Liability in Real-Time",
     description:
       "Instantly calculate your PAYE, track compliance, and optimize your tax legally under Nigeria’s 2024 Finance Act.",
-    url: "https://fiscora.com",
+    url: "https://fiscora.net",
     siteName: "Fiscora",
     images: [
       {
@@ -60,7 +60,7 @@ export const metadata: Metadata = {
 
   twitter: {
     card: "summary_large_image",
-    title: "Fiscora — Nigeria Tax Calculator",
+    title: "Fiscora — Nigeria Tax Calculator ",
     description:
       "Calculate PAYE, track compliance, and reduce tax risk with Nigeria’s smartest tax tool.",
     images: ["/og-image.png"],
