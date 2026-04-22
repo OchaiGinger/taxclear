@@ -16,10 +16,10 @@ export const Navbar = () => {
   return (
     <nav className="fixed top-0 left-0 w-full z-50 h-20 flex items-center justify-between px-[6%] backdrop-blur-md border-b border-white/5 bg-brand-black/40">
       {/* Logo */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1">
         <div className="w-12 h-12 relative">
           <Image
-            src="/logo.png"
+            src="/images/logo.png"
             alt="Fiscora Logo"
             fill
             className="object-contain"

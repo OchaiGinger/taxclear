@@ -5,6 +5,7 @@ import { CalculatorDialog } from "@/components/CalculatorDialog";
 import { X, Mail, ArrowUpRight, ShieldCheck, Globe } from "lucide-react";
 
 import { FaLinkedin, FaGithub } from "react-icons/fa";
+import Image from "next/image";
 export const Footer = () => {
   const currentYear = new Date().getFullYear();
 
@@ -51,10 +52,13 @@ export const Footer = () => {
           {/* Column 1: Brand & Bio */}
           <div className="space-y-8">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-brand-green flex items-center justify-center">
-                <span className="text-black font-black text-xs uppercase italic">
-                  TC
-                </span>
+              <div className="w-12 h-12 relative">
+                <Image
+                  src="/images/logo.png"
+                  alt="Fiscora Logo"
+                  fill
+                  className="object-contain"
+                />
               </div>
               <span className="text-xl font-headline font-bold tracking-tighter uppercase italic text-white">
                 Fiscora
