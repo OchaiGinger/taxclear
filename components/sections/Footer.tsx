@@ -27,22 +27,26 @@ export const Footer = () => {
         external: true,
       },
       { label: "Tax FAQs", href: "#" },
-      { label: "LIRS Portal", href: "https://lirs.gov.ng/", external: true },
+      {
+        label: "LIRS Portal",
+        href: "https://www.fiscora.net/",
+        external: true,
+      },
     ],
     company: [
-      { label: "About TaxClear", href: "#" },
+      { label: "About Fiscora", href: "#" },
       { label: "Privacy Policy", href: "#" },
       { label: "Terms of Service", href: "#" },
-      { label: "Contact Support", href: "mailto:hello@taxclear.ng" },
+      { label: "Contact Support", href: "mailto:info@fiscora.net" },
     ],
   };
 
   return (
     <footer className="bg-brand-black border-t border-white/5 pt-24 pb-12 px-[8%] relative overflow-hidden">
       {/* Background decoration */}
-      <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-brand-green/5 blur-[120px] rounded-full pointer-events-none -mr-48 -mb-48" />
+      <div className="absolute bottom-0 right-0 w-125  h-125 bg-brand-green/5 blur-[120px] rounded-full pointer-events-none -mr-48 -mb-48" />
 
-      <div className="max-w-[1280px] mx-auto relative z-10">
+      <div className="max-w-7xl mx-auto relative z-10">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-16 mb-24">
           {/* Column 1: Brand & Bio */}
           <div className="space-y-8">
@@ -53,7 +57,7 @@ export const Footer = () => {
                 </span>
               </div>
               <span className="text-xl font-headline font-bold tracking-tighter uppercase italic text-white">
-                TaxClear
+                Fiscora
               </span>
             </div>
             <p className="text-white/40 text-[0.8rem] leading-relaxed max-w-xs">
@@ -155,7 +159,7 @@ export const Footer = () => {
           <div className="space-y-3">
             <div className="flex items-center justify-center md:justify-start gap-4">
               <p className="text-[0.65rem] font-bold uppercase tracking-[0.2em] text-white/30">
-                TaxClear © {currentYear} · Lagos, Nigeria
+                Fiscora © {currentYear} · Benue, Nigeria
               </p>
               <div className="hidden md:flex items-center gap-2 px-3 py-1 bg-white/5 rounded-full border border-white/5">
                 <ShieldCheck className="w-3 h-3 text-brand-green" />

@@ -14,7 +14,7 @@ gsap.registerPlugin(ScrollTrigger);
 const bars = [
   { label: "Without Reliefs", pct: "+42%", value: 42 },
   { label: "Industry Average", pct: "+31%", value: 31 },
-  { label: "With TaxClear", pct: "+18%", value: 18 },
+  { label: "With Fiscora", pct: "+18%", value: 18 },
 ];
 
 const layers = [
@@ -72,7 +72,7 @@ function PerformanceBar({
 
   return (
     <div
-      className="flex items-stretch h-[72px] last:border-b-0"
+      className="flex items-stretch h-18 last:border-b-0"
       style={{ borderBottom: "1px solid #bbf7d0" }}
     >
       {/* growing bar */}
@@ -179,7 +179,7 @@ function Performance() {
           className="text-[11px] font-bold uppercase tracking-[0.2em]"
           style={{ color: "#4b7a5e" }}
         >
-          Source: FIRS &amp; TaxClear Analysis, 2024
+          Source: FIRS &amp; Fiscora Analysis, 2026
         </span>
       </div>
 
@@ -189,7 +189,7 @@ function Performance() {
           <PerformanceBar
             key={b.label}
             {...b}
-            isBest={b.label === "With TaxClear"}
+            isBest={b.label === "With Fiscora"}
             progress={progress}
           />
         ))}
@@ -236,7 +236,7 @@ export const Strategy = () => {
       className="py-[12vh] px-[8%]"
       style={{ backgroundColor: "#f0fdf4" }}
     >
-      <div className="max-w-[1280px] mx-auto">
+      <div className="max-w-7xl mx-auto">
         {/* ── Section header ── */}
         <div className="mb-16">
           <p className="text-[11px] font-bold uppercase tracking-[0.28em] text-green-600 mb-4">
@@ -291,7 +291,7 @@ export const Strategy = () => {
 
                 {/* green rule — mirrors Security icon placement */}
                 <div
-                  className="w-8 h-[2px] transition-all duration-500 group-hover:w-16"
+                  className="w-8 h-0.5 transition-all duration-500 group-hover:w-16"
                   style={{ backgroundColor: "#166534" }}
                 />
 

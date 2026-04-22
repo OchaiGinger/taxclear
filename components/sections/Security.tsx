@@ -365,7 +365,7 @@ export const Security = () => {
       style={{ backgroundColor: "#f0fdf4" }}
       className="py-[12vh] px-[8%]"
     >
-      <div className="max-w-[1280px] mx-auto">
+      <div className="max-w-7xl mx-auto">
         {/* ── Section header ── */}
         <div className="mb-16">
           <p className="text-[11px] font-bold uppercase tracking-[0.28em] text-green-600 mb-4">

@@ -32,7 +32,7 @@ const layers = [
         viewBox="0 0 320 320"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
-        className="w-full max-w-[480px]"
+        className="w-full max-w-120"
       >
         <rect
           x="40"
@@ -87,7 +87,7 @@ const layers = [
         viewBox="0 0 320 320"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
-        className="w-full max-w-[480px]"
+        className="w-full max-w-120"
       >
         <rect
           x="40"
@@ -214,7 +214,7 @@ const layers = [
     tab: "LAYER 3: CLARITY",
     title: ["KNOW YOUR", "TAX.", "OWN YOUR", "FUTURE."],
     description:
-      "TaxClear gives every Nigerian instant visibility into their tax obligations, filing status, and penalty risks — in plain language, in real time.",
+      "Fiscora gives every Nigerian instant visibility into their tax obligations, filing status, and penalty risks — in plain language, in real time.",
     features: [
       {
         title: "Real-Time Calculation",
@@ -230,7 +230,7 @@ const layers = [
         viewBox="0 0 320 320"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
-        className="w-full max-w-[480px]"
+        className="w-full max-w-120"
       >
         <rect
           x="40"
@@ -458,7 +458,7 @@ export const Problem = () => {
         ref={heroRef}
         className="min-h-screen flex flex-col justify-center px-[8%] py-[10vh]"
       >
-        <div className="max-w-[1280px] mx-auto w-full">
+        <div className="max-w-7xl mx-auto w-full">
           <p className="text-[11px] font-bold uppercase tracking-[0.28em] text-green-500 mb-10">
             Controlled
           </p>
@@ -477,7 +477,7 @@ export const Problem = () => {
               BLINDSPOT.
             </span>
           </h2>
-          <p className="mt-10 text-white/35 text-lg leading-relaxed max-w-[500px]">
+          <p className="mt-10 text-white/35 text-lg leading-relaxed max-w-125">
             Our diagnostic approach exposes your hidden tax risk across every
             layer of Nigeria's tax system.
           </p>
@@ -492,7 +492,7 @@ export const Problem = () => {
       >
         {/* Tab bar */}
         <div className="shrink-0 border-t border-b border-white/10 px-[8%]">
-          <div className="max-w-[1280px] mx-auto flex divide-x divide-white/10">
+          <div className="max-w-7xl mx-auto flex divide-x divide-white/10">
             {layers.map((layer, i) => {
               const pct = tabProgress[i];
               const hasStarted = pct > 0;
@@ -527,7 +527,7 @@ export const Problem = () => {
 
         {/* Content */}
         <div className="flex-1 flex items-center px-[8%] py-6">
-          <div className="max-w-[1280px] mx-auto w-full grid md:grid-cols-2 gap-16 items-center">
+          <div className="max-w-7xl mx-auto w-full grid md:grid-cols-2 gap-16 items-center">
             {/* Left: text */}
             <div>
               {/* ↓ Headline: was clamp(2.4rem,4.5vw,4rem) → now clamp(1.6rem,3vw,2.6rem) */}
@@ -559,7 +559,7 @@ export const Problem = () => {
                 {active.features.map((feat) => (
                   <div key={feat.title} className="feat-item flex gap-4">
                     {/* ↓ Icon circle: was w-9 h-9 → now w-7 h-7 */}
-                    <div className="mt-[2px] w-7 h-7 rounded-full border border-white/10 flex items-center justify-center shrink-0">
+                    <div className="mt-0.5 w-7 h-7 rounded-full border border-white/10 flex items-center justify-center shrink-0">
                       <div className="w-1.5 h-1.5 rounded-full bg-green-400" />
                     </div>
                     <div>

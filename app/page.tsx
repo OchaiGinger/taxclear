@@ -11,6 +11,7 @@ import { CTA } from "@/components/sections/CTA";
 import { Footer } from "@/components/sections/Footer";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { Team } from "@/components/sections/Team";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -24,6 +25,7 @@ export default function Home() {
         <Strategy />
         <TaxBrackets />
         <Security />
+        <Team />
         <CTA />
       </main>
       <Footer />
