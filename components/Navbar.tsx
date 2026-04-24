@@ -11,6 +11,7 @@ export const Navbar = () => {
     { num: "02", label: "HOW IT WORKS", href: "#strategy" },
     { num: "03", label: "TAX BRACKETS", href: "#brackets" },
     { num: "04", label: "SECURITY", href: "#security" },
+    { num: "05", label: "TEAM", href: "#team" },
   ];
 
   return (
