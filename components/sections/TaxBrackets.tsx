@@ -51,11 +51,11 @@ export const TaxBrackets = () => {
       ref={rootRef}
       className="py-[15vh] px-[8%] bg-brand-dark"
     >
-      <div className="max-w-[1280px] mx-auto">
+      <div className="max-w-7xl mx-auto">
         <div className="flex flex-col md:flex-row md:items-end justify-between mb-16 gap-8">
           <div className="max-w-xl">
             <p className="section-label mb-6">Tax Brackets</p>
-            <h2 className="text-4xl md:text-6xl font-headline font-bold uppercase leading-tight tracking-tight">
+            <h2 className="text-4xl text-white md:text-6xl font-headline font-bold uppercase leading-tight tracking-tight">
               Current{" "}
               <span className="font-serif italic text-brand-green">
                 FIRS PAYE
